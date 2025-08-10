@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Стили из предыдущего примера */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="progress-bar">
+            <div class="progress" id="progress"></div>
+        </div>
+        
+        <div id="step1" class="step card active">
+            <!-- Шаг 1: Пользовательское соглашение -->
+        </div>
+        
+        <div id="step2" class="step card">
+            <!-- Шаг 2: Геолокация -->
+        </div>
+        
+        <div id="step3" class="step card">
+            <!-- Шаг 3: Завершение -->
+        </div>
+    </div>
+
+    <script>
+        const webApp = Telegram.WebApp;
+        const user_id = new URLSearchParams(window.location.search).get('user_id');
+        
+        // Инициализация
+        webApp.expand();
+        webApp.setHeaderColor('#2e6e9e');
+        webApp.setBackgroundColor('#f8f9fa');
+        
+        // Функции для навигации по шагам
+        function goToStep(step) {
+            // ... реализация переключения шагов ...
+        }
+        
+        // Отправка данных на сервер
+        async function sendData(endpoint, data) {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({...data, user_id})
+            });
+            return response.json();
+        }
+        
+        // Обработчики событий
+        document.getElementById('acceptTermsBtn').addEventListener('click', async () => {
+            const result = await sendData('/accept_terms', {});
+            if (result.status === 'success') {
+                goToStep(2);
+            }
+        });
+        
+        document.getElementById('requestLocationBtn').addEventListener('click', () => {
+            webApp.requestLocation(async (location) => {
+                if (location) {
+                    const result = await sendData('/save_location', {
+                        latitude: location.latitude,
+                        longitude: location.longitude
+                    });
+                    if (result.status === 'success') {
+                        goToStep(3);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
