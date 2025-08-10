@@ -6,6 +6,7 @@
     <title>Регистрация в Medic Helper</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* Стили остаются без изменений */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -355,23 +356,46 @@
             }
         }
         
-        // Запрос геолокации
-        function requestLocation() {
+        // Запрос геолокации - ИСПРАВЛЕННАЯ ВЕРСИЯ
+        async function requestLocation() {
             const statusElement = document.getElementById('locationStatus');
             const errorElement = document.getElementById('locationError');
+            const button = document.getElementById('requestLocationBtn');
             
+            // Блокируем кнопку на время запроса
+            button.disabled = true;
             statusElement.textContent = "Определение местоположения...";
             errorElement.textContent = '';
             
-            webApp.requestLocation((location) => {
-                if (location) {
-                    statusElement.textContent = "Местоположение успешно определено!";
-                    saveLocation(location.latitude, location.longitude);
-                } else {
-                    statusElement.textContent = "Ожидание вашего разрешения...";
-                    errorElement.textContent = "Не удалось определить местоположение. Пожалуйста, попробуйте еще раз или предоставьте доступ в настройках Telegram.";
-                }
-            });
+            try {
+                // Используем Promise для обработки асинхронного запроса
+                const location = await new Promise((resolve, reject) => {
+                    webApp.requestLocation((location) => {
+                        if (location) {
+                            resolve(location);
+                        } else {
+                            reject(new Error('Местоположение не получено'));
+                        }
+                    });
+                    
+                    // Таймаут на случай, если Telegram не вернет ответ
+                    setTimeout(() => {
+                        reject(new Error('Время ожидания истекло'));
+                    }, 10000);
+                });
+                
+                statusElement.textContent = "Местоположение успешно определено!";
+                await saveLocation(location.latitude, location.longitude);
+                
+            } catch (error) {
+                console.error('Location error:', error);
+                statusElement.textContent = "Ожидание вашего разрешения...";
+                errorElement.textContent = error.message || 
+                    "Не удалось определить местоположение. Пожалуйста, попробуйте еще раз или предоставьте доступ в настройках Telegram.";
+            } finally {
+                // Разблокируем кнопку
+                button.disabled = false;
+            }
         }
         
         // Сохранение местоположения
