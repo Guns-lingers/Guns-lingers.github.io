@@ -14,21 +14,23 @@
         }
         
         body {
-            background-color: #f8f9fa;
-            color: #333;
+            background-color: var(--tg-theme-bg-color, #f8f9fa);
+            color: var(--tg-theme-text-color, #333);
             padding: 16px;
             line-height: 1.6;
+            min-height: 100vh;
         }
         
         .container {
             max-width: 600px;
             margin: 0 auto;
+            padding-top: 20px;
         }
         
         .card {
-            background: white;
+            background: var(--tg-theme-secondary-bg-color, white);
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             padding: 20px;
             margin-bottom: 20px;
         }
@@ -37,8 +39,8 @@
             display: block;
             width: 100%;
             padding: 14px;
-            background: #2e6e9e;
-            color: white;
+            background: var(--tg-theme-button-color, #2e6e9e);
+            color: var(--tg-theme-button-text-color, white);
             border: none;
             border-radius: 8px;
             font-size: 16px;
@@ -46,25 +48,22 @@
             cursor: pointer;
             text-align: center;
             margin: 8px 0;
-            transition: background 0.2s;
+            transition: opacity 0.2s;
         }
         
         .btn:disabled {
-            background: #cccccc;
+            opacity: 0.6;
             cursor: not-allowed;
-        }
-        
-        .btn-secondary {
-            background: #e9ecef;
-            color: #495057;
-        }
-        
-        .btn-secondary:hover {
-            background: #d8dbe0;
         }
         
         .step {
             display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .step.active {
@@ -72,65 +71,101 @@
         }
         
         .progress-bar {
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
+            height: 6px;
+            background: var(--tg-theme-secondary-bg-color, #e9ecef);
+            border-radius: 3px;
             overflow: hidden;
             margin: 20px 0;
         }
         
         .progress {
             height: 100%;
-            background: #2e6e9e;
+            background: var(--tg-theme-button-color, #2e6e9e);
             width: 0%;
             transition: width 0.3s;
         }
         
         .terms-container {
-            max-height: 300px;
+            max-height: 50vh;
             overflow-y: auto;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--tg-theme-hint-color, #e9ecef);
             border-radius: 8px;
             padding: 15px;
             margin: 15px 0;
-            background: #f8f9fa;
+            background: var(--tg-theme-bg-color, #f8f9fa);
+            font-size: 14px;
         }
         
         h2 {
             margin-bottom: 15px;
-            color: #2e6e9e;
+            color: var(--tg-theme-button-color, #2e6e9e);
         }
         
         p {
             margin-bottom: 10px;
+            font-size: 15px;
         }
         
         .error {
             color: #dc3545;
             margin-top: 10px;
             font-weight: 500;
-        }
-        
-        .success {
-            color: #28a745;
-            font-weight: 500;
+            text-align: center;
         }
         
         .step-indicator {
             text-align: center;
             margin-bottom: 15px;
             font-weight: 500;
-            color: #6c757d;
+            color: var(--tg-theme-hint-color, #6c757d);
+            font-size: 14px;
         }
         
         .location-icon {
             font-size: 48px;
             text-align: center;
             margin: 20px 0;
+            color: var(--tg-theme-button-color, #2e6e9e);
         }
         
         .step-content {
-            min-height: 200px;
+            min-height: 40vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+        }
+        
+        .checkbox-container input {
+            margin-right: 10px;
+            width: 20px;
+            height: 20px;
+        }
+        
+        .footer {
+            margin-top: auto;
+            padding-top: 15px;
+        }
+        
+        .success-icon {
+            text-align: center;
+            font-size: 60px;
+            margin: 20px 0;
+            color: #28a745;
+        }
+        
+        @media (max-height: 600px) {
+            .terms-container {
+                max-height: 40vh;
+            }
+            
+            .step-content {
+                min-height: 30vh;
+            }
         }
     </style>
 </head>
@@ -175,14 +210,15 @@
                     <p>Если у вас есть вопросы относительно этих Условий, пожалуйста, свяжитесь с нами через бота.</p>
                 </div>
                 
-                <div>
+                <div class="checkbox-container">
                     <input type="checkbox" id="agreeCheckbox">
                     <label for="agreeCheckbox">Я прочитал(а) и принимаю условия использования</label>
                 </div>
                 
-                <button id="acceptTermsBtn" class="btn" disabled>Принять условия и продолжить</button>
-                
-                <div id="termsError" class="error"></div>
+                <div class="footer">
+                    <button id="acceptTermsBtn" class="btn" disabled>Принять условия и продолжить</button>
+                    <div id="termsError" class="error"></div>
+                </div>
             </div>
         </div>
         
@@ -197,7 +233,7 @@
                 
                 <button id="requestLocationBtn" class="btn">Предоставить доступ к местоположению</button>
                 
-                <p id="locationStatus" style="margin-top: 15px; font-style: italic; color: #6c757d;">
+                <p id="locationStatus" style="margin-top: 15px; font-style: italic; color: var(--tg-theme-hint-color, #6c757d);">
                     Ожидание вашего разрешения...
                 </p>
                 
@@ -210,13 +246,13 @@
             <div class="step-indicator">Шаг 3 из 3</div>
             <div class="step-content">
                 <h2>Регистрация завершена! 🎉</h2>
-                <div style="text-align: center; margin: 20px 0;">
-                    <div style="font-size: 48px;">✅</div>
-                </div>
+                <div class="success-icon">✅</div>
                 <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
                 <p>Нажмите кнопку ниже, чтобы начать использовать бота:</p>
                 
-                <button id="startUsingBtn" class="btn">Начать использовать бот</button>
+                <div class="footer">
+                    <button id="startUsingBtn" class="btn">Начать использовать бот</button>
+                </div>
             </div>
         </div>
     </div>
@@ -235,16 +271,26 @@
         // Инициализация приложения
         function initApp() {
             // Настройки WebApp
+            webApp.ready();
             webApp.expand();
+            webApp.enableClosingConfirmation();
+            
+            // Устанавливаем цвета, совместимые с темой Telegram
             webApp.setHeaderColor('#2e6e9e');
             webApp.setBackgroundColor('#f8f9fa');
-            webApp.enableClosingConfirmation();
             
             // Инициализируем первый шаг
             updateProgress();
             
             // Обработчики событий
             setupEventListeners();
+            
+            // Для отладки
+            console.log('WebApp initialized', {
+                user_id,
+                theme: webApp.colorScheme,
+                platform: webApp.platform
+            });
         }
         
         // Настройка обработчиков событий
@@ -268,7 +314,8 @@
         // Обновление прогресс-бара
         function updateProgress() {
             const progress = document.getElementById('progress');
-            progress.style.width = `${(currentStep - 1) * 50}%`;
+            const percent = (currentStep - 1) * 50;
+            progress.style.width = `${percent}%`;
         }
         
         // Переход к шагу
@@ -284,6 +331,9 @@
             
             // Обновляем прогресс-бар
             updateProgress();
+            
+            // Прокручиваем вверх
+            window.scrollTo(0, 0);
         }
         
         // Принятие условий использования
@@ -292,21 +342,15 @@
             errorElement.textContent = '';
             
             try {
-                // Здесь должна быть отправка данных на сервер
-                // В реальном приложении замените URL на ваш эндпоинт
-                const response = await fetch('https://your-backend.com/accept_terms', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({user_id})
-                });
+                // В реальном приложении здесь будет отправка данных на сервер
+                // Для примера используем задержку
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
-                if (response.ok) {
-                    goToStep(2);
-                } else {
-                    errorElement.textContent = 'Ошибка при сохранении данных. Попробуйте позже.';
-                }
+                // Переходим к следующему шагу
+                goToStep(2);
+                
             } catch (error) {
-                errorElement.textContent = 'Сетевая ошибка. Проверьте подключение к интернету.';
+                errorElement.textContent = 'Ошибка при сохранении данных';
                 console.error('Terms acceptance error:', error);
             }
         }
@@ -336,25 +380,15 @@
             errorElement.textContent = '';
             
             try {
-                // Здесь должна быть отправка данных на сервер
-                // В реальном приложении замените URL на ваш эндпоинт
-                const response = await fetch('https://your-backend.com/save_location', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        user_id,
-                        latitude,
-                        longitude
-                    })
-                });
+                // В реальном приложении здесь будет отправка данных на сервер
+                // Для примера используем задержку
+                await new Promise(resolve => setTimeout(resolve, 500));
                 
-                if (response.ok) {
-                    goToStep(3);
-                } else {
-                    errorElement.textContent = 'Ошибка при сохранении местоположения. Попробуйте позже.';
-                }
+                // Переходим к следующему шагу
+                goToStep(3);
+                
             } catch (error) {
-                errorElement.textContent = 'Сетевая ошибка. Проверьте подключение к интернету.';
+                errorElement.textContent = 'Ошибка при сохранении местоположения';
                 console.error('Location save error:', error);
             }
         }
