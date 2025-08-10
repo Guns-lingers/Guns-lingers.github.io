@@ -362,38 +362,54 @@
             const errorElement = document.getElementById('locationError');
             const button = document.getElementById('requestLocationBtn');
             
-            // Блокируем кнопку на время запроса
             button.disabled = true;
             statusElement.textContent = "Определение местоположения...";
             errorElement.textContent = '';
-            
+
+            // 1. Проверка поддержки функции
+            if (typeof webApp.requestLocation !== 'function') {
+                const errorMsg = "Ваше приложение Telegram не поддерживает запрос местоположения";
+                errorElement.textContent = errorMsg;
+                console.error(errorMsg);
+                button.disabled = false;
+                statusElement.textContent = "Функция недоступна";
+                return;
+            }
+
             try {
-                // Используем Promise для обработки асинхронного запроса
+                // 2. Запрос разрешения
+                webApp.requestLocation();
+                
+                // 3. Ожидание события с данными
                 const location = await new Promise((resolve, reject) => {
-                    webApp.requestLocation((location) => {
-                        if (location) {
-                            resolve(location);
+                    const handleEvent = () => {
+                        if (webApp.location) {
+                            resolve(webApp.location);
                         } else {
-                            reject(new Error('Местоположение не получено'));
+                            reject(new Error("Доступ к местоположению не предоставлен"));
                         }
-                    });
+                        Telegram.WebApp.offEvent('locationChanged', handleEvent);
+                    };
                     
-                    // Таймаут на случай, если Telegram не вернет ответ
+                    Telegram.WebApp.onEvent('locationChanged', handleEvent);
+                    
+                    // Таймаут на случай отсутствия ответа
                     setTimeout(() => {
-                        reject(new Error('Время ожидания истекло'));
+                        reject(new Error("Время ожидания истекло"));
+                        Telegram.WebApp.offEvent('locationChanged', handleEvent);
                     }, 10000);
                 });
-                
-                statusElement.textContent = "Местоположение успешно определено!";
+
+                // 4. Обработка полученных данных
+                statusElement.textContent = "Местоположение определено!";
+                console.log("Location data:", location);
                 await saveLocation(location.latitude, location.longitude);
                 
             } catch (error) {
+                errorElement.textContent = error.message || "Ошибка при определении местоположения";
+                statusElement.textContent = "Ожидание разрешения...";
                 console.error('Location error:', error);
-                statusElement.textContent = "Ожидание вашего разрешения...";
-                errorElement.textContent = error.message || 
-                    "Не удалось определить местоположение. Пожалуйста, попробуйте еще раз или предоставьте доступ в настройках Telegram.";
             } finally {
-                // Разблокируем кнопку
                 button.disabled = false;
             }
         }
