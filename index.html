@@ -203,6 +203,26 @@
             flex: 1;
         }
         
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .btn-loading {
+            opacity: 0.7;
+        }
+
         @media (max-height: 600px) {
             .terms-container {
                 max-height: 40vh;
@@ -250,7 +270,9 @@
                 <p>Для корректной работы напоминаний о приеме лекарств нам необходимо определить ваш часовой пояс.</p>
                 <p>Пожалуйста, предоставьте доступ к вашему местоположению:</p>
                 
-                <button id="location-btn" class="btn">📍 Определить мое местоположение</button>
+                <button id="location-btn" class="btn">
+                    <span id="location-btn-text">📍 Определить мое местоположение</span>
+                </button>
                 
                 <div id="locationError" class="error"></div>
             </div>
@@ -311,13 +333,13 @@
         <div id="step4" class="step card">
             <div class="step-indicator">Шаг 4 из 4</div>
             <div class="step-content">
-                <h2>Регистрация завершена! 🎉</h2>
-                <div class="success-icon">✅</div>
-                <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
-                <p>Нажмите кнопку ниже, чтобы начать использовать бота:</p>
+                <h2>Отправка данных</h2>
+                <div class="success-icon">📤</div>
+                <p>Ваши данные отправлены на обработку.</p>
+                <p>Вернитесь в бота для завершения регистрации.</p>
                 
                 <div class="footer">
-                    <button id="startUsingBtn" class="btn">Начать использовать бот</button>
+                    <button id="startUsingBtn" class="btn">Вернуться в бота</button>
                 </div>
             </div>
         </div>
@@ -330,7 +352,6 @@
     // Получаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
     const user_id = urlParams.get('user_id');
-    const termsEncoded = urlParams.get('terms');
     
     // Текущий шаг
     let currentStep = 1;
@@ -344,23 +365,8 @@
         webApp.setHeaderColor('#2e6e9e');
         webApp.setBackgroundColor('#f8f9fa');
         
-        // Загружаем пользовательское соглашение
-        loadTerms();
         updateProgress();
         setupEventListeners();
-    }
-    
-    function loadTerms() {
-        if (termsEncoded) {
-            try {
-                const termsText = decodeURIComponent(termsEncoded);
-                document.getElementById('termsContent').innerHTML = termsText;
-            } catch (e) {
-                document.getElementById('termsContent').innerHTML = '<p>Ошибка загрузки соглашения</p>';
-            }
-        } else {
-            document.getElementById('termsContent').innerHTML = '<p>Загрузка соглашения...</p>';
-        }
     }
     
     function setupEventListeners() {
@@ -395,7 +401,15 @@
     
     async function requestLocation() {
         const errorElement = document.getElementById('locationError');
+        const locationBtn = document.getElementById('location-btn');
+        const btnText = document.getElementById('location-btn-text');
+        
         errorElement.textContent = '';
+        
+        // Блокируем кнопку и показываем индикатор
+        locationBtn.classList.add('btn-loading');
+        locationBtn.disabled = true;
+        btnText.innerHTML = '<span class="spinner"></span> Получение геоданных...';
         
         webApp.showPopup({
             title: 'Доступ к местоположению',
@@ -408,12 +422,27 @@
             if (buttonId === 'share') {
                 try {
                     const position = await getBrowserLocation();
-                    processLocation(position);
+                    await processLocation(position);
                 } catch (error) {
                     showLocationError(error.message);
+                } finally {
+                    // Восстанавливаем кнопку в любом случае
+                    resetLocationButton();
                 }
+            } else {
+                // Пользователь отменил - восстанавливаем кнопку
+                resetLocationButton();
             }
         });
+    }
+    
+    function resetLocationButton() {
+        const locationBtn = document.getElementById('location-btn');
+        const btnText = document.getElementById('location-btn-text');
+        
+        locationBtn.classList.remove('btn-loading');
+        locationBtn.disabled = false;
+        btnText.textContent = '📍 Определить мое местоположение';
     }
     
     function getBrowserLocation() {
@@ -434,7 +463,7 @@
         }
     }
     
-    function processLocation(position) {
+    async function processLocation(position) {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         
@@ -507,18 +536,8 @@
             }
         }));
         
-        // Показываем сообщение об успехе
-        document.querySelector('.step-content').innerHTML = `
-            <h2>Регистрация завершена! 🎉</h2>
-            <div class="success-icon">✅</div>
-            <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
-            <p>Приложение закроется автоматически через 3 секунды...</p>
-        `;
-        
-        // Закрываем приложение через 3 секунды
-        setTimeout(() => {
-            webApp.close();
-        }, 3000);
+        // Закрываем приложение
+        webApp.close();
     }
     
     // Запускаем приложение
