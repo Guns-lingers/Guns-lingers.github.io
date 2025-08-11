@@ -175,28 +175,38 @@
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
                         
-                        // Определяем часовой пояс
-                        const timezoneStr = timezonefinder.find(lat, lng);
-                        
-                        // Создаем временную зону
-                        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        const formatter = new Intl.DateTimeFormat('ru-RU', {
-                            timeZone: timezone,
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                        
-                        // Получаем текущее время
-                        const now = new Date();
-                        const timeStr = formatter.format(now);
-                        
-                        // Рассчитываем смещение от UTC
-                        const utcOffset = -now.getTimezoneOffset() / 60;
-                        const utcOffsetStr = `UTC${utcOffset >= 0 ? '+' : ''}${utcOffset.toFixed(1)}`;
-                        
-                        // Показываем результат
-                        showResult(lat, lng, timezoneStr, timeStr, utcOffsetStr);
+                        try {
+                            // Определяем часовой пояс
+                            const timezoneStr = timezoneFinder.find(lat, lng);
+                            
+                            if (!timezoneStr) {
+                                throw new Error("Часовой пояс не найден");
+                            }
+                            
+                            // Создаем форматтер времени
+                            const formatter = new Intl.DateTimeFormat('ru-RU', {
+                                timeZone: timezoneStr,
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            
+                            // Получаем текущее время в определенном часовом поясе
+                            const now = new Date();
+                            const timeStr = formatter.format(now);
+                            
+                            // Рассчитываем смещение от UTC
+                            const timezoneOffset = now.getTimezoneOffset();
+                            const utcOffset = -timezoneOffset / 60;
+                            const utcOffsetStr = `UTC${utcOffset >= 0 ? '+' : ''}${utcOffset.toFixed(1)}`;
+                            
+                            // Показываем результат
+                            showResult(lat, lng, timezoneStr, timeStr, utcOffsetStr);
+                        } catch (e) {
+                            console.error("Ошибка обработки:", e);
+                            showInitial();
+                            alert('Ошибка обработки данных: ' + e.message);
+                        }
                     },
                     error => {
                         showInitial();
