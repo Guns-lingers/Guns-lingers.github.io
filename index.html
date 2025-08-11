@@ -444,17 +444,16 @@
             const formatter = new Intl.DateTimeFormat('ru-RU', {
                 timeZone: timezone,
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                second: '2-digit'
             });
             
-            // ВЫЧИСЛЯЕМ СМЕЩЕНИЕ ОТ UTC
-            const utcDate = new Date(now.getTime());
-            const tzDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
-            const diff = (utcDate.getTime() - tzDate.getTime()) / 60000;
-            const hours = Math.floor(Math.abs(diff) / 60);
-            const minutes = Math.abs(diff) % 60;
-            const sign = diff >= 0 ? '+' : '-';
-            const utcOffsetStr = `UTC${sign}${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            // КОРРЕКТНОЕ ВЫЧИСЛЕНИЕ СМЕЩЕНИЯ
+            const utcOffsetMinutes = now.getTimezoneOffset();
+            const offsetHours = Math.floor(Math.abs(utcOffsetMinutes) / 60);
+            const offsetMinutes = Math.abs(utcOffsetMinutes) % 60;
+            const sign = utcOffsetMinutes > 0 ? '-' : '+';
+            const utcOffsetStr = `UTC${sign}${offsetHours.toString().padStart(2, '0')}:${offsetMinutes.toString().padStart(2, '0')}`;
             
             locationData = {
                 lat,
@@ -491,37 +490,36 @@
             return;
         }
         
-        // Отправляем данные в бот
-        webApp.sendData(JSON.stringify({
-            action: 'save_location',
-            user_id: user_id,
-            ...locationData
-        }));
-        
+        // Только переходим на следующий шаг, без отправки данных
         goToStep(4);
     }
     
-    async function completeRegistration() {
-    // 1. Сначала показываем интерфейс
-    document.querySelector('.step-content').innerHTML = `
-        <h2>Регистрация завершена! 🎉</h2>
-        <div class="success-icon">✅</div>
-        <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
-        <p>Вы можете закрыть это окно и вернуться в бота.</p>
-        <div class="footer">
-            <button id="closeAppBtn" class="btn">Закрыть приложение</button>
-        </div>
-    `;
-    
-    // 2. Отправляем данные только при закрытии
-    document.getElementById('closeAppBtn').addEventListener('click', () => {
+    function completeRegistration() {
+        // Отправляем ВСЕ данные при нажатии на кнопку
         webApp.sendData(JSON.stringify({
             action: 'registration_complete',
-            user_id: user_id
+            user_id: user_id,
+            location: {
+                lat: locationData.lat,
+                lng: locationData.lng,
+                timezone: locationData.timezone,
+                utcOffset: locationData.utcOffset
+            }
         }));
-        webApp.close();
-    });
-}
+        
+        // Показываем сообщение об успехе
+        document.querySelector('.step-content').innerHTML = `
+            <h2>Регистрация завершена! 🎉</h2>
+            <div class="success-icon">✅</div>
+            <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
+            <p>Приложение закроется автоматически через 3 секунды...</p>
+        `;
+        
+        // Закрываем приложение через 3 секунды
+        setTimeout(() => {
+            webApp.close();
+        }, 3000);
+    }
     
     // Запускаем приложение
     document.addEventListener('DOMContentLoaded', initApp);
