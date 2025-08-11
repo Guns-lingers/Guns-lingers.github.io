@@ -203,53 +203,6 @@
             flex: 1;
         }
         
-        .pdf-container {
-            width: 100%;
-            max-height: 50vh;
-            overflow-y: auto;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            padding: 10px;
-            background: white;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .pdf-viewport {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: auto;
-            text-align: center;
-        }
-
-        .pdf-viewport canvas {
-            max-width: 100%;
-            height: auto !important;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-
-        .btn-loading {
-            opacity: 0.7;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
         @media (max-height: 600px) {
             .terms-container {
                 max-height: 40vh;
@@ -272,7 +225,7 @@
             <div class="step-indicator">Шаг 1 из 4</div>
             <div class="step-content">
                 <h2>Пользовательское соглашение</h2>
-                <div class="pdf-container" id="pdfViewer">
+                <div class="terms-container" id="termsContent">
                     <p>Загрузка пользовательского соглашения...</p>
                 </div>
                 
@@ -297,9 +250,7 @@
                 <p>Для корректной работы напоминаний о приеме лекарств нам необходимо определить ваш часовой пояс.</p>
                 <p>Пожалуйста, предоставьте доступ к вашему местоположению:</p>
                 
-                <button id="location-btn" class="btn">
-                    <span id="location-btn-text">📍 Определить мое местоположение</span>
-                </button>
+                <button id="location-btn" class="btn">📍 Определить мое местоположение</button>
                 
                 <div id="locationError" class="error"></div>
             </div>
@@ -360,20 +311,18 @@
         <div id="step4" class="step card">
             <div class="step-indicator">Шаг 4 из 4</div>
             <div class="step-content">
-                <h2>Отправка данных</h2>
-                <div class="success-icon">📤</div>
-                <p>Ваши данные отправлены на обработку.</p>
-                <p>Вернитесь в бота для завершения регистрации.</p>
+                <h2>Регистрация завершена! 🎉</h2>
+                <div class="success-icon">✅</div>
+                <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
+                <p>Нажмите кнопку ниже, чтобы начать использовать бота:</p>
                 
                 <div class="footer">
-                    <button id="startUsingBtn" class="btn">Вернуться в бота</button>
+                    <button id="startUsingBtn" class="btn">Начать использовать бот</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-    
     <script>
     // Инициализация Telegram Web App
     const webApp = Telegram.WebApp;
@@ -381,7 +330,7 @@
     // Получаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
     const user_id = urlParams.get('user_id');
-    const pdf_url = urlParams.get('pdf_url'); // Ссылка на PDF-файл
+    const termsEncoded = urlParams.get('terms');
     
     // Текущий шаг
     let currentStep = 1;
@@ -396,78 +345,21 @@
         webApp.setBackgroundColor('#f8f9fa');
         
         // Загружаем пользовательское соглашение
-        loadPDF();
+        loadTerms();
         updateProgress();
         setupEventListeners();
     }
     
-    // Загрузка и отображение PDF
-    async function loadPDF() {
-        const pdfViewer = document.getElementById('pdfViewer');
-        
-        if (!pdf_url) {
-            pdfViewer.innerHTML = '<p>Ссылка на соглашение не предоставлена</p>';
-            return;
-        }
-        
-        try {
-            // Показываем сообщение о загрузке
-            pdfViewer.innerHTML = '<p>Загрузка документа...</p>';
-            
-            // Инициализация PDF.js
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-            
-            const loadingTask = pdfjsLib.getDocument(pdf_url);
-            const pdf = await loadingTask.promise;
-            
-            // Получаем первую страницу
-            const page = await pdf.getPage(1);
-            
-            // Создаем контейнер для PDF
-            const viewportContainer = document.createElement('div');
-            viewportContainer.className = 'pdf-viewport';
-            pdfViewer.innerHTML = '';
-            pdfViewer.appendChild(viewportContainer);
-            
-            // Подготавливаем canvas для рендеринга
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            viewportContainer.appendChild(canvas);
-            
-            // Рассчитываем масштаб под размер контейнера
-            const containerWidth = viewportContainer.clientWidth - 30;
-            const viewport = page.getViewport({ scale: 1 });
-            const scale = Math.min(1.5, containerWidth / viewport.width);
-            const scaledViewport = page.getViewport({ scale });
-            
-            // Устанавливаем размеры canvas
-            canvas.height = scaledViewport.height;
-            canvas.width = scaledViewport.width;
-            
-            // Рендерим страницу
-            await page.render({
-                canvasContext: context,
-                viewport: scaledViewport
-            }).promise;
-            
-            // Добавляем ссылку для скачивания
-            const downloadLink = document.createElement('a');
-            downloadLink.href = pdf_url;
-            downloadLink.textContent = 'Скачать полный текст соглашения';
-            downloadLink.target = '_blank';
-            downloadLink.style.display = 'block';
-            downloadLink.style.marginTop = '10px';
-            downloadLink.style.textAlign = 'center';
-            downloadLink.style.color = '#2e6e9e';
-            downloadLink.style.fontWeight = '500';
-            viewportContainer.appendChild(downloadLink);
-            
-        } catch (e) {
-            console.error('Ошибка загрузки PDF:', e);
-            pdfViewer.innerHTML = `
-                <p>Не удалось загрузить соглашение. Пожалуйста, ознакомьтесь с ним по ссылке:</p>
-                <a href="${pdf_url}" target="_blank" style="color: #2e6e9e; font-weight: 500;">${pdf_url}</a>
-            `;
+    function loadTerms() {
+        if (termsEncoded) {
+            try {
+                const termsText = decodeURIComponent(termsEncoded);
+                document.getElementById('termsContent').innerHTML = termsText;
+            } catch (e) {
+                document.getElementById('termsContent').innerHTML = '<p>Ошибка загрузки соглашения</p>';
+            }
+        } else {
+            document.getElementById('termsContent').innerHTML = '<p>Загрузка соглашения...</p>';
         }
     }
     
@@ -503,15 +395,7 @@
     
     async function requestLocation() {
         const errorElement = document.getElementById('locationError');
-        const locationBtn = document.getElementById('location-btn');
-        const btnText = document.getElementById('location-btn-text');
-        
         errorElement.textContent = '';
-        
-        // Блокируем кнопку и показываем индикатор
-        locationBtn.classList.add('btn-loading');
-        locationBtn.disabled = true;
-        btnText.innerHTML = '<span class="spinner"></span> Получение геоданных...';
         
         webApp.showPopup({
             title: 'Доступ к местоположению',
@@ -524,27 +408,12 @@
             if (buttonId === 'share') {
                 try {
                     const position = await getBrowserLocation();
-                    await processLocation(position);
+                    processLocation(position);
                 } catch (error) {
                     showLocationError(error.message);
-                } finally {
-                    // Восстанавливаем кнопку в любом случае
-                    resetLocationButton();
                 }
-            } else {
-                // Пользователь отменил - восстанавливаем кнопку
-                resetLocationButton();
             }
         });
-    }
-    
-    function resetLocationButton() {
-        const locationBtn = document.getElementById('location-btn');
-        const btnText = document.getElementById('location-btn-text');
-        
-        locationBtn.classList.remove('btn-loading');
-        locationBtn.disabled = false;
-        btnText.textContent = '📍 Определить мое местоположение';
     }
     
     function getBrowserLocation() {
@@ -565,7 +434,7 @@
         }
     }
     
-    async function processLocation(position) {
+    function processLocation(position) {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         
@@ -638,8 +507,18 @@
             }
         }));
         
-        // Закрываем приложение
-        webApp.close();
+        // Показываем сообщение об успехе
+        document.querySelector('.step-content').innerHTML = `
+            <h2>Регистрация завершена! 🎉</h2>
+            <div class="success-icon">✅</div>
+            <p>Поздравляем! Теперь вы можете пользоваться всеми функциями Medic Helper.</p>
+            <p>Приложение закроется автоматически через 3 секунды...</p>
+        `;
+        
+        // Закрываем приложение через 3 секунды
+        setTimeout(() => {
+            webApp.close();
+        }, 3000);
     }
     
     // Запускаем приложение
