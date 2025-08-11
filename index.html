@@ -1,71 +1,62 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
+    <title>Location Finder</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Медицинский помощник</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* Стили из предыдущего примера */
+        body { 
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #2481cc;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="card">
-            <h1>💊 Ваше расписание приема лекарств</h1>
-            <div id="schedulesList"></div>
-            <button id="createScheduleBtn" class="btn">📝 Создать новое расписание</button>
-        </div>
+        <h2>Определение местоположения</h2>
+        <p>Нажмите кнопку чтобы поделиться вашим местоположением</p>
+        <button id="location-btn">📍 Отправить геоданные</button>
     </div>
 
     <script>
         const webApp = Telegram.WebApp;
-        const user_id = new URLSearchParams(window.location.search).get('user_id');
         
-        // Инициализация
-        webApp.expand();
-        webApp.setHeaderColor('#2e6e9e');
-        webApp.setBackgroundColor('#f8f9fa');
-        
-        // Загрузка данных пользователя
-        async function loadUserData() {
-            try {
-                const response = await fetch(`/user_data?user_id=${user_id}`);
-                const data = await response.json();
-                renderSchedules(data.schedules);
-            } catch (error) {
-                console.error('Ошибка загрузки данных:', error);
-            }
-        }
-        
-        // Отрисовка расписаний
-        function renderSchedules(schedules) {
-            const container = document.getElementById('schedulesList');
-            // ... логика отрисовки ...
-        }
-        
-        // Создание нового расписания
-        document.getElementById('createScheduleBtn').addEventListener('click', () => {
-            webApp.showPopup({
-                title: 'Создание расписания',
-                message: 'Введите название:',
-                buttons: [{id: 'create', type: 'default', text: 'Создать'}]
-            }, (btnId) => {
-                if (btnId === 'create') {
-                    const name = prompt('Название расписания:');
-                    if (name) {
-                        webApp.sendData(JSON.stringify({
-                            action: 'create_schedule',
-                            name: name
-                        }));
+        document.getElementById('location-btn').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const data = `${position.coords.latitude};${position.coords.longitude}`;
+                        webApp.sendData(data);
                         webApp.close();
+                    },
+                    error => {
+                        alert('Ошибка получения геолокации: ' + error.message);
                     }
-                }
-            });
+                );
+            } else {
+                alert('Геолокация не поддерживается вашим устройством');
+            }
         });
-        
-        // Загрузка данных при запуске
-        loadUserData();
     </script>
 </body>
 </html>
