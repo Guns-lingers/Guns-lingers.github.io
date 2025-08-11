@@ -1,12 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Location Finder</title>
+    <title>Location & Time Zone</title>
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Подключаем MapLibre GL JS -->
-    <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
         body {
             margin: 0;
@@ -51,13 +48,15 @@
             font-size: 20px;
             text-align: center;
         }
-        #map {
-            height: 300px;
+        .info-value {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 8px 12px;
+            border-radius: 8px;
+            display: inline-block;
+            margin: 5px 0;
             width: 100%;
-            border-radius: 15px;
-            margin-top: 10px;
-            z-index: 1;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            box-sizing: border-box;
         }
         button {
             background: linear-gradient(135deg, #6d83ff, #6df);
@@ -79,13 +78,6 @@
         .result {
             display: none;
         }
-        .coordinates {
-            font-family: monospace;
-            background: rgba(0, 0, 0, 0.2);
-            padding: 5px 10px;
-            border-radius: 8px;
-            display: inline-block;
-        }
         .loader {
             text-align: center;
             padding: 30px;
@@ -99,39 +91,25 @@
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
         }
+        .location-info {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
-        }
-        
-        /* Стили для MapLibre */
-        .maplibregl-ctrl-bottom-left, 
-        .maplibregl-ctrl-bottom-right {
-            background: rgba(0,0,0,0.5);
-            color: white;
-            padding: 3px;
-            border-radius: 3px;
-            font-size: 11px;
-        }
-        .maplibregl-popup {
-            max-width: 200px;
-        }
-        .maplibregl-popup-content {
-            background: #2d1a2d;
-            color: white;
-            border-radius: 10px;
-            padding: 10px;
-            box-shadow: 0 0 15px rgba(109,131,255,0.5);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🌎 Карта и часовой пояс</h1>
+        <h1>🌎 Определение местоположения</h1>
         
         <div id="initial-view">
             <div class="card">
-                <p>Это приложение определит ваше местоположение, покажет его на карте и рассчитает ваш часовой пояс.</p>
+                <p>Это приложение определит ваше местоположение и рассчитает ваш часовой пояс.</p>
                 <p>Нажмите кнопку ниже, чтобы поделиться вашим местоположением:</p>
             </div>
             <button id="location-btn">📍 Определить мое местоположение</button>
@@ -139,19 +117,33 @@
         
         <div id="result-view" class="result">
             <div class="card">
-                <div class="info-grid">
-                    <div class="icon">📍</div>
-                    <div>Координаты: <span class="coordinates" id="coordinates"></span></div>
+                <h2>Результаты определения</h2>
+                <div class="location-info">
+                    <div>
+                        <div class="icon">📍</div>
+                        <h3>Координаты:</h3>
+                        <div class="info-value" id="coordinates"></div>
+                    </div>
                     
-                    <div class="icon">🕒</div>
-                    <div>Часовой пояс: <span id="timezone"></span></div>
+                    <div>
+                        <div class="icon">🕒</div>
+                        <h3>Часовой пояс:</h3>
+                        <div class="info-value" id="timezone"></div>
+                    </div>
                     
-                    <div class="icon">⏱️</div>
-                    <div>Местное время: <span id="time"></span></div>
+                    <div>
+                        <div class="icon">⏱️</div>
+                        <h3>Местное время:</h3>
+                        <div class="info-value" id="time"></div>
+                    </div>
+                    
+                    <div>
+                        <div class="icon">🌐</div>
+                        <h3>Смещение от UTC:</h3>
+                        <div class="info-value" id="utc-offset"></div>
+                    </div>
                 </div>
             </div>
-            
-            <div id="map"></div>
             <button id="reset-btn">🔄 Сбросить и повторить</button>
         </div>
         
@@ -169,10 +161,8 @@
         const coordinatesEl = document.getElementById('coordinates');
         const timezoneEl = document.getElementById('timezone');
         const timeEl = document.getElementById('time');
+        const utcOffsetEl = document.getElementById('utc-offset');
         const resetBtn = document.getElementById('reset-btn');
-        
-        let map = null;
-        let marker = null;
         
         // Пытаемся получить параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -180,6 +170,7 @@
         const lngParam = urlParams.get('lng');
         const timezoneParam = urlParams.get('timezone');
         const timeParam = urlParams.get('time');
+        const utcOffsetParam = urlParams.get('utc_offset');
         
         // Если параметры есть, показываем результат
         if (latParam && lngParam) {
@@ -187,7 +178,8 @@
                 parseFloat(latParam),
                 parseFloat(lngParam),
                 decodeURIComponent(timezoneParam),
-                decodeURIComponent(timeParam)
+                decodeURIComponent(timeParam),
+                decodeURIComponent(utcOffsetParam)
             );
         }
         
@@ -228,10 +220,6 @@
             initialView.style.display = 'block';
             resultView.style.display = 'none';
             loadingView.style.display = 'none';
-            if (map) {
-                map.remove();
-                map = null;
-            }
         }
         
         function showLoading() {
@@ -240,143 +228,15 @@
             loadingView.style.display = 'block';
         }
         
-        function showResult(lat, lng, timezone, time) {
-            coordinatesEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        function showResult(lat, lng, timezone, time, utcOffset) {
+            coordinatesEl.textContent = `Широта: ${lat.toFixed(6)}, Долгота: ${lng.toFixed(6)}`;
             timezoneEl.textContent = timezone;
             timeEl.textContent = time;
+            utcOffsetEl.textContent = utcOffset;
             
             initialView.style.display = 'none';
             resultView.style.display = 'block';
             loadingView.style.display = 'none';
-            
-            // Инициализируем карту только после отображения контейнера
-            setTimeout(() => showMap(lat, lng), 50);
-        }
-        
-        function showMap(lat, lng) {
-            if (map) {
-                map.remove();
-            }
-            
-            // Инициализируем карту MapLibre
-            map = new maplibregl.Map({
-                container: 'map',
-                style: {
-                    version: 8,
-                    sources: {
-                        'protomaps': {
-                            type: 'vector',
-                            tiles: [`https://api.protomaps.com/tiles/v3/{z}/{x}/{y}.mvt?key=8b7405751153fac6`],
-                            attribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap'
-                        }
-                    },
-                    layers: [
-                        {
-                            id: 'background',
-                            type: 'background',
-                            paint: {'background-color': '#1a1f2d'}
-                        },
-                        {
-                            id: 'water',
-                            type: 'fill',
-                            source: 'protomaps',
-                            'source-layer': 'water',
-                            paint: {'fill-color': '#1a1f2d'}
-                        },
-                        {
-                            id: 'landuse',
-                            type: 'fill',
-                            source: 'protomaps',
-                            'source-layer': 'landuse',
-                            paint: {'fill-color': '#1a2d2d'}
-                        },
-                        {
-                            id: 'roads',
-                            type: 'line',
-                            source: 'protomaps',
-                            'source-layer': 'roads',
-                            paint: {
-                                'line-color': '#6d83ff',
-                                'line-width': 1
-                            }
-                        },
-                        {
-                            id: 'buildings',
-                            type: 'fill',
-                            source: 'protomaps',
-                            'source-layer': 'buildings',
-                            paint: {'fill-color': '#2d1a2d'}
-                        },
-                        {
-                            id: 'places',
-                            type: 'symbol',
-                            source: 'protomaps',
-                            'source-layer': 'places',
-                            layout: {
-                                'text-field': ['get', 'name'],
-                                'text-size': 12,
-                                'text-font': ['Noto Sans Regular'],
-                                'text-allow-overlap': false
-                            },
-                            paint: {
-                                'text-color': '#ffffff'
-                            }
-                        }
-                    ]
-                },
-                center: [lng, lat],
-                zoom: 13,
-                attributionControl: false
-            });
-            
-            // Добавляем элементы управления
-            map.addControl(new maplibregl.NavigationControl(), 'top-right');
-            map.addControl(new maplibregl.AttributionControl({
-                compact: true,
-                customAttribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap'
-            }));
-            
-            // Создаем кастомный маркер
-            const markerElement = document.createElement('div');
-            markerElement.className = 'custom-marker';
-            markerElement.innerHTML = '<div style="background:#6d83ff; border-radius:50%; width:20px; height:20px; border:3px solid white; box-shadow:0 0 10px rgba(109,131,255,0.8);"></div>';
-            
-            // Добавляем маркер на карту
-            marker = new maplibregl.Marker({
-                element: markerElement,
-                anchor: 'center'
-            })
-            .setLngLat([lng, lat])
-            .setPopup(new maplibregl.Popup().setHTML('<b>Ваше местоположение</b>'))
-            .addTo(map)
-            .togglePopup();
-            
-            // Добавляем круг точности
-            map.on('load', () => {
-                map.addSource('point', {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        geometry: {
-                            type: 'Point',
-                            coordinates: [lng, lat]
-                        }
-                    }
-                });
-                
-                map.addLayer({
-                    id: 'point-circle',
-                    type: 'circle',
-                    source: 'point',
-                    paint: {
-                        'circle-radius': 100,
-                        'circle-color': '#6df',
-                        'circle-opacity': 0.2,
-                        'circle-stroke-color': '#6df',
-                        'circle-stroke-width': 1
-                    }
-                });
-            });
         }
         
         // Инициализация Mini App
@@ -385,4 +245,3 @@
     </script>
 </body>
 </html>
-
