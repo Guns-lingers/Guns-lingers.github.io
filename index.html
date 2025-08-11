@@ -4,7 +4,6 @@
     <title>Location & Time Zone</title>
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/timezonefinder@1.0.0/dist/timezonefinder.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -165,6 +164,25 @@
         const utcOffsetEl = document.getElementById('utc-offset');
         const resetBtn = document.getElementById('reset-btn');
         
+        // Пытаемся получить параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const latParam = urlParams.get('lat');
+        const lngParam = urlParams.get('lng');
+        const timezoneParam = urlParams.get('timezone');
+        const timeParam = urlParams.get('time');
+        const utcOffsetParam = urlParams.get('utc_offset');
+        
+        // Если параметры есть, показываем результат
+        if (latParam && lngParam) {
+            showResult(
+                parseFloat(latParam),
+                parseFloat(lngParam),
+                decodeURIComponent(timezoneParam),
+                decodeURIComponent(timeParam),
+                decodeURIComponent(utcOffsetParam)
+            );
+        }
+        
         // Обработчик кнопки определения местоположения
         document.getElementById('location-btn').addEventListener('click', () => {
             if (navigator.geolocation) {
@@ -175,38 +193,11 @@
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
                         
-                        try {
-                            // Определяем часовой пояс
-                            const timezoneStr = timezoneFinder.find(lat, lng);
-                            
-                            if (!timezoneStr) {
-                                throw new Error("Часовой пояс не найден");
-                            }
-                            
-                            // Создаем форматтер времени
-                            const formatter = new Intl.DateTimeFormat('ru-RU', {
-                                timeZone: timezoneStr,
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            
-                            // Получаем текущее время в определенном часовом поясе
-                            const now = new Date();
-                            const timeStr = formatter.format(now);
-                            
-                            // Рассчитываем смещение от UTC
-                            const timezoneOffset = now.getTimezoneOffset();
-                            const utcOffset = -timezoneOffset / 60;
-                            const utcOffsetStr = `UTC${utcOffset >= 0 ? '+' : ''}${utcOffset.toFixed(1)}`;
-                            
-                            // Показываем результат
-                            showResult(lat, lng, timezoneStr, timeStr, utcOffsetStr);
-                        } catch (e) {
-                            console.error("Ошибка обработки:", e);
-                            showInitial();
-                            alert('Ошибка обработки данных: ' + e.message);
-                        }
+                        // Отправляем данные в бота
+                        webApp.sendData(`${lat};${lng}`);
+                        
+                        // Показываем загрузку до возврата из бота
+                        showLoading();
                     },
                     error => {
                         showInitial();
@@ -220,6 +211,8 @@
         
         // Обработчик кнопки сброса
         resetBtn.addEventListener('click', () => {
+            // Очищаем параметры URL
+            window.history.replaceState({}, document.title, window.location.pathname);
             showInitial();
         });
         
