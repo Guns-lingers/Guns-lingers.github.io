@@ -6,6 +6,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Protomaps JS -->
+    <script src="https://unpkg.com/protomaps@1.27.0/dist/protomaps.js"></script>
     <style>
         body {
             margin: 0;
@@ -102,6 +104,15 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        /* Стили для Protomaps */
+        .protomaps-control-attribution {
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 3px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
     </style>
 </head>
 <body>
@@ -152,6 +163,7 @@
         
         let map = null;
         let marker = null;
+        let pmLayer = null;
         
         // Пытаемся получить параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -237,18 +249,44 @@
             mapContainer.innerHTML = '<div style="height:100%; width:100%; border-radius:15px;"></div>';
             
             // Инициализируем карту
-            map = L.map(mapContainer.firstChild).setView([lat, lng], 13);
+            map = L.map(mapContainer.firstChild, {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([lat, lng], 13);
             
-            // Добавляем слой OpenStreetMap
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 18
-            }).addTo(map);
+            // Добавляем контролы
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            
+            // Создаем и настраиваем слой Protomaps
+            pmLayer = protomaps.leafletLayer({
+                url: 'https://build.protomaps.com/20231027.pmtiles',
+                theme: 'dark',
+                attribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap',
+                style: {
+                    // Кастомизация стилей карты
+                    land: { fill: '#1a2d2d' },
+                    water: { fill: '#1a1f2d' },
+                    park: { fill: '#1a2d1a' },
+                    residential: { fill: '#2d1a2d' },
+                    road: { stroke: '#6d83ff', width: 1 },
+                    transit: { stroke: '#6df', width: 1 },
+                    label: { fill: '#ffffff', font: 'bold 11px sans-serif' },
+                    city: { fill: '#ffffff', font: 'bold 13px sans-serif' }
+                }
+            });
+            pmLayer.addTo(map);
             
             // Добавляем маркер
-            marker = L.marker([lat, lng]).addTo(map)
-                .bindPopup('Ваше местоположение')
-                .openPopup();
+            marker = L.marker([lat, lng], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: '<div style="background:#6d83ff; border-radius:50%; width:20px; height:20px; border:3px solid white; box-shadow:0 0 10px rgba(109,131,255,0.8);"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                })
+            }).addTo(map)
+            .bindPopup('Ваше местоположение')
+            .openPopup();
                 
             // Добавляем круг точности
             L.circle([lat, lng], {
