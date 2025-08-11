@@ -205,10 +205,29 @@
         
         .pdf-container {
             width: 100%;
-            height: 50vh;
+            max-height: 50vh;
+            overflow-y: auto;
             border: 1px solid #e0e0e0;
             border-radius: 8px;
             margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .pdf-viewport {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            text-align: center;
+        }
+
+        .pdf-viewport canvas {
+            max-width: 100%;
+            height: auto !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
 
         .spinner {
@@ -392,6 +411,9 @@
         }
         
         try {
+            // Показываем сообщение о загрузке
+            pdfViewer.innerHTML = '<p>Загрузка документа...</p>';
+            
             // Инициализация PDF.js
             pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
             
@@ -401,21 +423,31 @@
             // Получаем первую страницу
             const page = await pdf.getPage(1);
             
+            // Создаем контейнер для PDF
+            const viewportContainer = document.createElement('div');
+            viewportContainer.className = 'pdf-viewport';
+            pdfViewer.innerHTML = '';
+            pdfViewer.appendChild(viewportContainer);
+            
             // Подготавливаем canvas для рендеринга
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
-            pdfViewer.innerHTML = '';
-            pdfViewer.appendChild(canvas);
+            viewportContainer.appendChild(canvas);
             
-            // Устанавливаем масштаб
-            const viewport = page.getViewport({ scale: 1.5 });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            // Рассчитываем масштаб под размер контейнера
+            const containerWidth = viewportContainer.clientWidth - 30;
+            const viewport = page.getViewport({ scale: 1 });
+            const scale = Math.min(1.5, containerWidth / viewport.width);
+            const scaledViewport = page.getViewport({ scale });
+            
+            // Устанавливаем размеры canvas
+            canvas.height = scaledViewport.height;
+            canvas.width = scaledViewport.width;
             
             // Рендерим страницу
             await page.render({
                 canvasContext: context,
-                viewport: viewport
+                viewport: scaledViewport
             }).promise;
             
             // Добавляем ссылку для скачивания
@@ -426,13 +458,15 @@
             downloadLink.style.display = 'block';
             downloadLink.style.marginTop = '10px';
             downloadLink.style.textAlign = 'center';
-            pdfViewer.appendChild(downloadLink);
+            downloadLink.style.color = '#2e6e9e';
+            downloadLink.style.fontWeight = '500';
+            viewportContainer.appendChild(downloadLink);
             
         } catch (e) {
             console.error('Ошибка загрузки PDF:', e);
             pdfViewer.innerHTML = `
                 <p>Не удалось загрузить соглашение. Пожалуйста, ознакомьтесь с ним по ссылке:</p>
-                <a href="${pdf_url}" target="_blank">${pdf_url}</a>
+                <a href="${pdf_url}" target="_blank" style="color: #2e6e9e; font-weight: 500;">${pdf_url}</a>
             `;
         }
     }
