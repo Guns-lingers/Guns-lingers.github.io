@@ -259,327 +259,378 @@
     </div>
 
     <script>
-        // Проверка загрузки Telegram WebApp SDK
-        if (!window.Telegram || !Telegram.WebApp) {
-            alert('Ошибка загрузки Telegram WebApp SDK! Пожалуйста, откройте приложение через Telegram');
-            throw new Error('Telegram WebApp SDK not loaded');
-        }
+    // Проверка загрузки Telegram WebApp SDK
+    if (!window.Telegram || !Telegram.WebApp) {
+        alert('Ошибка загрузки Telegram WebApp SDK! Пожалуйста, откройте приложение через Telegram');
+        throw new Error('Telegram WebApp SDK not loaded');
+    }
 
-        // Инициализация Telegram Web App
-        const webApp = Telegram.WebApp;
+    // Инициализация Telegram Web App
+    const webApp = Telegram.WebApp;
+    
+    // Получаем ID пользователя из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const user_id = urlParams.get('user_id');
+    
+    // Текущий шаг
+    let currentStep = 1;
+    
+    // Инициализация приложения
+    function initApp() {
+        // Проверка инициализации WebApp
+        if (!webApp.initData || !webApp.initDataUnsafe) {
+            console.error('Telegram WebApp not initialized');
+            showErrorModal('Ошибка инициализации приложения. Пожалуйста, перезапустите бота.');
+            return;
+        }
         
-        // Получаем ID пользователя из URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const user_id = urlParams.get('user_id');
+        // Настройки WebApp
+        webApp.ready();
+        webApp.expand();
+        webApp.enableClosingConfirmation();
         
-        // Текущий шаг
-        let currentStep = 1;
+        // Устанавливаем цвета, совместимые с темой Telegram
+        webApp.setHeaderColor('#2e6e9e');
+        webApp.setBackgroundColor('#f8f9fa');
         
-        // Инициализация приложения
-        function initApp() {
-            // Проверка инициализации WebApp
-            if (!webApp.initData || !webApp.initDataUnsafe) {
-                console.error('Telegram WebApp not initialized');
-                showErrorModal('Ошибка инициализации приложения. Пожалуйста, перезапустите бота.');
+        // Инициализируем первый шаг
+        updateProgress();
+        
+        // Обработчики событий
+        setupEventListeners();
+        
+        // Для отладки
+        console.log('WebApp initialized', {
+            user_id,
+            theme: webApp.colorScheme,
+            platform: webApp.platform,
+            version: webApp.version
+        });
+    }
+    
+    // Настройка обработчиков событий
+    function setupEventListeners() {
+        // Чекбокс принятия условий
+        document.getElementById('agreeCheckbox').addEventListener('change', function(e) {
+            document.getElementById('acceptTermsBtn').disabled = !e.target.checked;
+            document.getElementById('termsError').textContent = '';
+        });
+        
+        // Кнопка принятия условий
+        document.getElementById('acceptTermsBtn').addEventListener('click', acceptTerms);
+        
+        // Кнопка запроса геолокации
+        document.getElementById('requestLocationBtn').addEventListener('click', requestLocation);
+        
+        // Кнопка завершения регистрации
+        document.getElementById('startUsingBtn').addEventListener('click', completeRegistration);
+    }
+    
+    // Обновление прогресс-бара
+    function updateProgress() {
+        const progress = document.getElementById('progress');
+        const percent = (currentStep - 1) * 50;
+        progress.style.width = `${percent}%`;
+    }
+    
+    // Переход к шагу
+    function goToStep(step) {
+        // Скрываем текущий шаг
+        document.querySelectorAll('.step').forEach(el => {
+            el.classList.remove('active');
+        });
+        
+        // Показываем новый шаг
+        document.getElementById(`step${step}`).classList.add('active');
+        currentStep = step;
+        
+        // Обновляем прогресс-бар
+        updateProgress();
+        
+        // Прокручиваем вверх
+        window.scrollTo(0, 0);
+    }
+    
+    // Принятие условий использования
+    async function acceptTerms() {
+        const errorElement = document.getElementById('termsError');
+        errorElement.textContent = '';
+        
+        try {
+            // В реальном приложении здесь будет отправка данных на сервер
+            // Для примера используем задержку
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Переходим к следующему шагу
+            goToStep(2);
+            
+        } catch (error) {
+            errorElement.textContent = 'Ошибка при сохранении данных';
+            console.error('Terms acceptance error:', error);
+        }
+    }
+    
+    // Запрос геолокации (современный подход)
+    async function requestLocation() {
+        const statusElement = document.getElementById('locationStatus');
+        const errorElement = document.getElementById('locationError');
+        const button = document.getElementById('requestLocationBtn');
+        
+        button.disabled = true;
+        statusElement.textContent = "Определение местоположения...";
+        errorElement.textContent = '';
+        
+        try {
+            // Проверяем, есть ли уже доступ к геолокации
+            if (webApp.location) {
+                console.log("Location already available:", webApp.location);
+                await saveLocation(webApp.location.latitude, webApp.location.longitude);
                 return;
             }
             
-            // Настройки WebApp
-            webApp.ready();
-            webApp.expand();
-            webApp.enableClosingConfirmation();
-            
-            // Устанавливаем цвета, совместимые с темой Telegram
-            webApp.setHeaderColor('#2e6e9e');
-            webApp.setBackgroundColor('#f8f9fa');
-            
-            // Инициализируем первый шаг
-            updateProgress();
-            
-            // Обработчики событий
-            setupEventListeners();
-            
-            // Для отладки
-            console.log('WebApp initialized', {
-                user_id,
-                theme: webApp.colorScheme,
-                platform: webApp.platform,
-                version: webApp.version
-            });
-        }
-        
-        // Настройка обработчиков событий
-        function setupEventListeners() {
-            // Чекбокс принятия условий
-            document.getElementById('agreeCheckbox').addEventListener('change', function(e) {
-                document.getElementById('acceptTermsBtn').disabled = !e.target.checked;
-                document.getElementById('termsError').textContent = '';
-            });
-            
-            // Кнопка принятия условий
-            document.getElementById('acceptTermsBtn').addEventListener('click', acceptTerms);
-            
-            // Кнопка запроса геолокации
-            document.getElementById('requestLocationBtn').addEventListener('click', requestLocation);
-            
-            // Кнопка завершения регистрации
-            document.getElementById('startUsingBtn').addEventListener('click', completeRegistration);
-        }
-        
-        // Обновление прогресс-бара
-        function updateProgress() {
-            const progress = document.getElementById('progress');
-            const percent = (currentStep - 1) * 50;
-            progress.style.width = `${percent}%`;
-        }
-        
-        // Переход к шагу
-        function goToStep(step) {
-            // Скрываем текущий шаг
-            document.querySelectorAll('.step').forEach(el => {
-                el.classList.remove('active');
-            });
-            
-            // Показываем новый шаг
-            document.getElementById(`step${step}`).classList.add('active');
-            currentStep = step;
-            
-            // Обновляем прогресс-бар
-            updateProgress();
-            
-            // Прокручиваем вверх
-            window.scrollTo(0, 0);
-        }
-        
-        // Принятие условий использования
-        async function acceptTerms() {
-            const errorElement = document.getElementById('termsError');
-            errorElement.textContent = '';
-            
-            try {
-                // В реальном приложении здесь будет отправка данных на сервер
-                // Для примера используем задержку
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Переходим к следующему шагу
-                goToStep(2);
-                
-            } catch (error) {
-                errorElement.textContent = 'Ошибка при сохранении данных';
-                console.error('Terms acceptance error:', error);
-            }
-        }
-        
-        // Запрос геолокации (современный подход)
-        async function requestLocation() {
-            const statusElement = document.getElementById('locationStatus');
-            const errorElement = document.getElementById('locationError');
-            const button = document.getElementById('requestLocationBtn');
-            
-            button.disabled = true;
-            statusElement.textContent = "Определение местоположения...";
-            errorElement.textContent = '';
-            
-            try {
-                // Проверяем, есть ли уже доступ к геолокации
-                if (webApp.location) {
-                    console.log("Location already available:", webApp.location);
-                    await saveLocation(webApp.location.latitude, webApp.location.longitude);
-                    return;
+            // Показываем всплывающее окно с объяснением
+            webApp.showPopup({
+                title: 'Доступ к местоположению',
+                message: 'Для определения вашего часового пояса нам нужен доступ к геолокации',
+                buttons: [
+                    {id: 'share', type: 'default', text: 'Поделиться местоположением'},
+                    {type: 'cancel', text: 'Отмена'}
+                ]
+            }, (buttonId) => {
+                if (buttonId === 'share') {
+                    // Запрашиваем местоположение после согласия пользователя
+                    requestLocationAfterConsent();
+                } else {
+                    statusElement.textContent = "Запрос отменен";
+                    button.disabled = false;
                 }
-                
-                // Показываем всплывающее окно с объяснением
-                webApp.showPopup({
-                    title: 'Доступ к местоположению',
-                    message: 'Для определения вашего часового пояса нам нужен доступ к геолокации',
-                    buttons: [
-                        {id: 'share', type: 'default', text: 'Поделиться местоположением'},
-                        {type: 'cancel', text: 'Отмена'}
-                    ]
-                }, (buttonId) => {
-                    if (buttonId === 'share') {
-                        // Запрашиваем местоположение после согласия пользователя
-                        requestLocationAfterConsent();
-                    } else {
-                        statusElement.textContent = "Запрос отменен";
-                        button.disabled = false;
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Location request error:', error);
-                errorElement.textContent = "Ошибка при запросе местоположения";
-                button.disabled = false;
-            }
-        }
-        
-        // Запрос геолокации после получения согласия
-        async function requestLocationAfterConsent() {
-            const statusElement = document.getElementById('locationStatus');
-            const errorElement = document.getElementById('locationError');
-            const button = document.getElementById('requestLocationBtn');
+            });
             
-            try {
-                // Для старых клиентов используем requestLocation
+        } catch (error) {
+            console.error('Location request error:', error);
+            errorElement.textContent = "Ошибка при запросе местоположения";
+            button.disabled = false;
+        }
+    }
+    
+    // Запрос геолокации после получения согласия
+    async function requestLocationAfterConsent() {
+        const statusElement = document.getElementById('locationStatus');
+        const errorElement = document.getElementById('locationError');
+        const button = document.getElementById('requestLocationBtn');
+        
+        try {
+            // Используем новый метод получения местоположения
+            const location = await getBrowserLocation();
+            statusElement.textContent = "Местоположение определено!";
+            await saveLocation(location.latitude, location.longitude);
+            
+        } catch (error) {
+            console.error('Location error:', error);
+            errorElement.textContent = error.message || "Ошибка при определении местоположения";
+            statusElement.textContent = "Ожидание разрешения...";
+            button.disabled = false;
+            
+            // Показываем подробную инструкцию при ошибке
+            showLocationErrorInstruction(error.message);
+        }
+    }
+    
+    function getBrowserLocation() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Геолокация не поддерживается вашим браузером"));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            position => {
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                });
+            },
+            error => {
+                let errorMessage;
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "Пользователь отклонил запрос на геолокацию";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "Информация о местоположении недоступна";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "Время запроса на получение местоположения истекло";
+                        break;
+                    default:
+                        errorMessage = "Произошла неизвестная ошибка";
+                }
+                reject(new Error(errorMessage));
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    });
+}
+
+    // Новый метод получения геолокации с несколькими попытками
+    async function getLocationWithFallback() {
+        return new Promise((resolve, reject) => {
+            // 1. Проверяем, есть ли уже данные о местоположении
+            if (webApp.location) {
+                return resolve(webApp.location);
+            }
+            
+            let locationReceived = false;
+            const maxAttempts = 3;
+            let attempts = 0;
+            
+            // 2. Функция для попытки получения местоположения
+            const tryGetLocation = () => {
+                attempts++;
+                console.log(`Location attempt ${attempts}/${maxAttempts}`);
+                
+                // Запрашиваем местоположение
                 if (typeof webApp.requestLocation === 'function') {
                     webApp.requestLocation();
-                } 
-                // Для новых клиентов - locationChanged event
-                else {
-                    console.log("Using locationChanged event");
                 }
                 
-                // Ожидаем данные о местоположении
-                const location = await waitForLocation();
-                statusElement.textContent = "Местоположение определено!";
-                await saveLocation(location.latitude, location.longitude);
-                
-            } catch (error) {
-                console.error('Location error:', error);
-                errorElement.textContent = error.message || "Ошибка при определении местоположения";
-                statusElement.textContent = "Ожидание разрешения...";
-                button.disabled = false;
-            }
-        }
-        
-        // Ожидание получения геолокации
-        function waitForLocation() {
-            return new Promise((resolve, reject) => {
-                // Если местоположение уже доступно
-                if (webApp.location) {
-                    return resolve(webApp.location);
-                }
-                
-                // Обработчик события получения местоположения
-                const locationHandler = () => {
+                // Проверяем через интервал
+                const checkInterval = setInterval(() => {
                     if (webApp.location) {
-                        clearTimeout(timeoutId);
-                        webApp.offEvent('locationChanged', locationHandler);
+                        clearInterval(checkInterval);
+                        locationReceived = true;
                         resolve(webApp.location);
                     }
-                };
+                }, 1000);
                 
-                // Подписываемся на событие
-                webApp.onEvent('locationChanged', locationHandler);
-                
-                // Таймаут на случай отсутствия ответа
-                const timeoutId = setTimeout(() => {
-                    webApp.offEvent('locationChanged', locationHandler);
+                // Ожидаем 5 секунд
+                setTimeout(() => {
+                    clearInterval(checkInterval);
+                    if (!locationReceived && attempts < maxAttempts) {
+                        tryGetLocation();
+                    } else if (!locationReceived) {
+                        reject(new Error("Не удалось получить местоположение"));
+                    }
+                }, 5000);
+            };
+            
+            // 3. Обработчик события (если оно сработает)
+            const locationHandler = () => {
+                if (webApp.location) {
+                    locationReceived = true;
+                    resolve(webApp.location);
+                }
+            };
+            
+            // Подписываемся на событие
+            webApp.onEvent('locationChanged', locationHandler);
+            
+            // 4. Начинаем попытки
+            tryGetLocation();
+            
+            // 5. Общий таймаут
+            setTimeout(() => {
+                if (!locationReceived) {
                     reject(new Error("Время ожидания истекло. Пожалуйста, попробуйте еще раз"));
-                }, 10000);
-            });
-        }
+                    webApp.offEvent('locationChanged', locationHandler);
+                }
+            }, 30000); // 30 секунд общий таймаут
+        });
+    }
+    
+    // Сохранение местоположения
+    async function saveLocation(latitude, longitude) {
+        const errorElement = document.getElementById('locationError');
+        errorElement.textContent = '';
         
-        // Сохранение местоположения
-        async function saveLocation(latitude, longitude) {
-            const errorElement = document.getElementById('locationError');
-            errorElement.textContent = '';
+        try {
+            // Собираем данные для отправки
+            const userData = {
+                action: 'save_location',
+                user_id: user_id,
+                lat: latitude,
+                lon: longitude
+            };
+
+            // Отправляем данные через Telegram WebApp
+            webApp.sendData(JSON.stringify(userData));
             
-            try {
-                // Здесь должна быть реальная логика отправки на сервер
-                console.log("Saving location:", { latitude, longitude });
-                
-                // Определяем часовой пояс по координатам
-                const timezone = await getTimezone(latitude, longitude);
-                console.log("Detected timezone:", timezone);
-                
-                // Отправляем данные на сервер
-                await sendToServer({
-                    user_id,
-                    latitude,
-                    longitude,
-                    timezone
-                });
-                
-                // Переходим к следующему шагу
-                goToStep(3);
-                
-            } catch (error) {
-                errorElement.textContent = 'Ошибка при сохранении местоположения: ' + error.message;
-                console.error('Location save error:', error);
-            }
-        }
-        
-        // Завершение регистрации
-        function completeRegistration() {
-            // Отправляем данные в Telegram бота
-            webApp.sendData(JSON.stringify({
-                action: 'registration_complete',
-                user_id: user_id
-            }));
+            // Показываем сообщение о успешной отправке
+            document.getElementById('locationStatus').textContent = "Данные отправлены...";
             
-            // Закрываем веб-приложение
-            webApp.close();
+            // Переходим к следующему шагу
+            setTimeout(() => goToStep(3), 500);
+            
+        } catch (error) {
+            errorElement.textContent = 'Ошибка при отправке данных: ' + error.message;
+            console.error('Location save error:', error);
         }
+    }
+    
+    // Завершение регистрации
+    function completeRegistration() {
+        // Отправляем данные в Telegram бота
+        webApp.sendData(JSON.stringify({
+            action: 'registration_complete',
+            user_id: user_id
+        }));
         
-        // --- Вспомогательные функции ---
+        // Закрываем веб-приложение
+        webApp.close();
+    }
+    
+    // Показать модальное окно с ошибкой
+    function showErrorModal(message) {
+        const modal = document.createElement('div');
+        modal.style = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        `;
         
-        // Определение часового пояса по координатам
-        async function getTimezone(lat, lon) {
-            try {
-                const response = await fetch(`https://api.geoapify.com/v1/geocode/reverse?lat=${lat}&lon=${lon}&apiKey=YOUR_API_KEY`);
-                const data = await response.json();
-                return data.features[0]?.properties?.timezone?.name || 'UTC';
-            } catch {
-                return 'UTC';
-            }
-        }
-        
-        // Отправка данных на сервер
-        async function sendToServer(data) {
-            // В реальном приложении здесь будет fetch запрос
-            console.log("Sending data to server:", data);
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        // Показать модальное окно с ошибкой
-        function showErrorModal(message) {
-            const modal = document.createElement('div');
-            modal.style = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0,0,0,0.7);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 10000;
+        modal.innerHTML = `
+            <div style="
+                background: white;
                 padding: 20px;
-            `;
-            
-            modal.innerHTML = `
-                <div style="
-                    background: white;
-                    padding: 20px;
-                    border-radius: 12px;
-                    max-width: 400px;
-                    text-align: center;
-                ">
-                    <h3 style="color: #dc3545; margin-bottom: 15px;">Ошибка</h3>
-                    <p>${message}</p>
-                    <button id="reloadBtn" style="
-                        margin-top: 20px;
-                        padding: 10px 20px;
-                        background: #2e6e9e;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        cursor: pointer;
-                    ">Перезагрузить</button>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            document.getElementById('reloadBtn').addEventListener('click', () => {
-                location.reload();
-            });
-        }
+                border-radius: 12px;
+                max-width: 400px;
+                text-align: center;
+            ">
+                <h3 style="color: #dc3545; margin-bottom: 15px;">Ошибка</h3>
+                <p>${message}</p>
+                <button id="reloadBtn" style="
+                    margin-top: 20px;
+                    padding: 10px 20px;
+                    background: #2e6e9e;
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    cursor: pointer;
+                ">Перезагрузить</button>
+            </div>
+        `;
         
-        // Запускаем приложение при загрузке страницы
-        document.addEventListener('DOMContentLoaded', initApp);
-    </script>
+        document.body.appendChild(modal);
+        
+        document.getElementById('reloadBtn').addEventListener('click', () => {
+            location.reload();
+        });
+    }
+    
+    // Запускаем приложение при загрузке страницы
+    document.addEventListener('DOMContentLoaded', initApp);
+</script>
 </body>
 </html>
