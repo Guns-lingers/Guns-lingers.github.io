@@ -203,10 +203,11 @@
             flex: 1;
         }
         
+        /* Стили для индикатора загрузки */
         .spinner {
-            width: 24px;
-            height: 24px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
             border-radius: 50%;
             border-top-color: white;
             animation: spin 1s ease-in-out infinite;
@@ -222,7 +223,7 @@
         .btn-loading {
             opacity: 0.7;
         }
-
+        
         @media (max-height: 600px) {
             .terms-container {
                 max-height: 40vh;
@@ -352,6 +353,7 @@
     // Получаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
     const user_id = urlParams.get('user_id');
+    const termsEncoded = urlParams.get('terms');
     
     // Текущий шаг
     let currentStep = 1;
@@ -365,8 +367,23 @@
         webApp.setHeaderColor('#2e6e9e');
         webApp.setBackgroundColor('#f8f9fa');
         
+        // Загружаем пользовательское соглашение
+        loadTerms();
         updateProgress();
         setupEventListeners();
+    }
+    
+    function loadTerms() {
+        if (termsEncoded) {
+            try {
+                const termsText = decodeURIComponent(termsEncoded);
+                document.getElementById('termsContent').innerHTML = termsText;
+            } catch (e) {
+                document.getElementById('termsContent').innerHTML = '<p>Ошибка загрузки соглашения</p>';
+            }
+        } else {
+            document.getElementById('termsContent').innerHTML = '<p>Загрузка соглашения...</p>';
+        }
     }
     
     function setupEventListeners() {
@@ -436,6 +453,7 @@
         });
     }
     
+    // Функция для восстановления кнопки
     function resetLocationButton() {
         const locationBtn = document.getElementById('location-btn');
         const btnText = document.getElementById('location-btn-text');
