@@ -4,52 +4,190 @@
     <title>Location Finder</title>
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background: #f5f5f5;
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1f2d, #2d1a2d);
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
         .container {
-            max-width: 400px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            color: #6df;
+            text-shadow: 0 0 10px rgba(109, 221, 255, 0.5);
+        }
+        .card {
+            background: rgba(40, 44, 52, 0.8);
             border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 30px 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        .icon {
+            font-size: 20px;
+            text-align: center;
+        }
+        #map {
+            height: 300px;
+            width: 100%;
+            border-radius: 15px;
+            margin-top: 10px;
+            z-index: 1;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
         }
         button {
-            background: #2481cc;
+            background: linear-gradient(135deg, #6d83ff, #6df);
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 16px;
             font-size: 18px;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
             margin-top: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(109, 131, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+        button:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(109, 131, 255, 0.4);
+        }
+        .result {
+            display: none;
+        }
+        .coordinates {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 5px 10px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .loader {
+            text-align: center;
+            padding: 30px;
+        }
+        .loader-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #6df;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>Определение местоположения</h2>
-        <p>Нажмите кнопку чтобы поделиться вашим местоположением</p>
-        <button id="location-btn">📍 Отправить геоданные</button>
+        <h1>🌎 Карта и часовой пояс</h1>
+        
+        <div id="initial-view">
+            <div class="card">
+                <p>Это приложение определит ваше местоположение, покажет его на карте и рассчитает ваш часовой пояс.</p>
+                <p>Нажмите кнопку ниже, чтобы поделиться вашим местоположением:</p>
+            </div>
+            <button id="location-btn">📍 Определить мое местоположение</button>
+        </div>
+        
+        <div id="result-view" class="result">
+            <div class="card">
+                <div class="info-grid">
+                    <div class="icon">📍</div>
+                    <div>Координаты: <span class="coordinates" id="coordinates"></span></div>
+                    
+                    <div class="icon">🕒</div>
+                    <div>Часовой пояс: <span id="timezone"></span></div>
+                    
+                    <div class="icon">⏱️</div>
+                    <div>Местное время: <span id="time"></span></div>
+                </div>
+            </div>
+            
+            <div id="map"></div>
+            <button id="reset-btn">🔄 Сбросить и повторить</button>
+        </div>
+        
+        <div id="loading-view" class="loader result">
+            <div class="loader-spinner"></div>
+            <p>Обработка данных...</p>
+        </div>
     </div>
 
     <script>
         const webApp = Telegram.WebApp;
+        const initialView = document.getElementById('initial-view');
+        const resultView = document.getElementById('result-view');
+        const loadingView = document.getElementById('loading-view');
+        const coordinatesEl = document.getElementById('coordinates');
+        const timezoneEl = document.getElementById('timezone');
+        const timeEl = document.getElementById('time');
+        const resetBtn = document.getElementById('reset-btn');
         
+        let map = null;
+        let marker = null;
+        
+        // Пытаемся получить параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const latParam = urlParams.get('lat');
+        const lngParam = urlParams.get('lng');
+        const timezoneParam = urlParams.get('timezone');
+        const timeParam = urlParams.get('time');
+        
+        // Если параметры есть, показываем результат
+        if (latParam && lngParam) {
+            showResult(
+                parseFloat(latParam),
+                parseFloat(lngParam),
+                decodeURIComponent(timezoneParam),
+                decodeURIComponent(timeParam)
+            );
+        }
+        
+        // Обработчик кнопки определения местоположения
         document.getElementById('location-btn').addEventListener('click', () => {
             if (navigator.geolocation) {
+                showLoading();
+                
                 navigator.geolocation.getCurrentPosition(
                     position => {
-                        const data = `${position.coords.latitude};${position.coords.longitude}`;
-                        webApp.sendData(data);
-                        webApp.close();
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        // Отправляем данные в бота
+                        webApp.sendData(`${lat};${lng}`);
+                        
+                        // Показываем загрузку до возврата из бота
+                        showLoading();
                     },
                     error => {
+                        showInitial();
                         alert('Ошибка получения геолокации: ' + error.message);
                     }
                 );
@@ -57,6 +195,73 @@
                 alert('Геолокация не поддерживается вашим устройством');
             }
         });
+        
+        // Обработчик кнопки сброса
+        resetBtn.addEventListener('click', () => {
+            // Очищаем параметры URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+            showInitial();
+        });
+        
+        function showInitial() {
+            initialView.style.display = 'block';
+            resultView.style.display = 'none';
+            loadingView.style.display = 'none';
+        }
+        
+        function showLoading() {
+            initialView.style.display = 'none';
+            resultView.style.display = 'none';
+            loadingView.style.display = 'block';
+        }
+        
+        function showResult(lat, lng, timezone, time) {
+            showMap(lat, lng);
+            
+            coordinatesEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            timezoneEl.textContent = timezone;
+            timeEl.textContent = time;
+            
+            initialView.style.display = 'none';
+            resultView.style.display = 'block';
+            loadingView.style.display = 'none';
+        }
+        
+        function showMap(lat, lng) {
+            if (map) {
+                map.remove();
+            }
+            
+            // Создаем контейнер для карты
+            const mapContainer = document.getElementById('map');
+            mapContainer.innerHTML = '<div style="height:100%; width:100%; border-radius:15px;"></div>';
+            
+            // Инициализируем карту
+            map = L.map(mapContainer.firstChild).setView([lat, lng], 13);
+            
+            // Добавляем слой OpenStreetMap
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Добавляем маркер
+            marker = L.marker([lat, lng]).addTo(map)
+                .bindPopup('Ваше местоположение')
+                .openPopup();
+                
+            // Добавляем круг точности
+            L.circle([lat, lng], {
+                color: '#6df',
+                fillColor: '#6df',
+                fillOpacity: 0.2,
+                radius: 100
+            }).addTo(map);
+        }
+        
+        // Инициализация Mini App
+        webApp.ready();
+        webApp.expand();
     </script>
 </body>
 </html>
