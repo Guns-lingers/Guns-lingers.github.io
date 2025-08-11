@@ -4,6 +4,7 @@
     <title>Location & Time Zone</title>
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/timezonefinder@1.0.0/dist/timezonefinder.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -164,25 +165,6 @@
         const utcOffsetEl = document.getElementById('utc-offset');
         const resetBtn = document.getElementById('reset-btn');
         
-        // Пытаемся получить параметры из URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const latParam = urlParams.get('lat');
-        const lngParam = urlParams.get('lng');
-        const timezoneParam = urlParams.get('timezone');
-        const timeParam = urlParams.get('time');
-        const utcOffsetParam = urlParams.get('utc_offset');
-        
-        // Если параметры есть, показываем результат
-        if (latParam && lngParam) {
-            showResult(
-                parseFloat(latParam),
-                parseFloat(lngParam),
-                decodeURIComponent(timezoneParam),
-                decodeURIComponent(timeParam),
-                decodeURIComponent(utcOffsetParam)
-            );
-        }
-        
         // Обработчик кнопки определения местоположения
         document.getElementById('location-btn').addEventListener('click', () => {
             if (navigator.geolocation) {
@@ -193,11 +175,28 @@
                         const lat = position.coords.latitude;
                         const lng = position.coords.longitude;
                         
-                        // Отправляем данные в бота
-                        webApp.sendData(`${lat};${lng}`);
+                        // Определяем часовой пояс
+                        const timezoneStr = timezonefinder.find(lat, lng);
                         
-                        // Показываем загрузку до возврата из бота
-                        showLoading();
+                        // Создаем временную зону
+                        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        const formatter = new Intl.DateTimeFormat('ru-RU', {
+                            timeZone: timezone,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        
+                        // Получаем текущее время
+                        const now = new Date();
+                        const timeStr = formatter.format(now);
+                        
+                        // Рассчитываем смещение от UTC
+                        const utcOffset = -now.getTimezoneOffset() / 60;
+                        const utcOffsetStr = `UTC${utcOffset >= 0 ? '+' : ''}${utcOffset.toFixed(1)}`;
+                        
+                        // Показываем результат
+                        showResult(lat, lng, timezoneStr, timeStr, utcOffsetStr);
                     },
                     error => {
                         showInitial();
@@ -211,8 +210,6 @@
         
         // Обработчик кнопки сброса
         resetBtn.addEventListener('click', () => {
-            // Очищаем параметры URL
-            window.history.replaceState({}, document.title, window.location.pathname);
             showInitial();
         });
         
