@@ -4,10 +4,9 @@
     <title>Location Finder</title>
     <meta charset="UTF-8">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Protomaps JS -->
-    <script src="https://unpkg.com/protomaps@1.27.0/dist/protomaps.js"></script>
+    <!-- Подключаем MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@3.1.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
         body {
             margin: 0;
@@ -105,13 +104,24 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Стили для Protomaps */
-        .protomaps-control-attribution {
+        /* Стили для MapLibre */
+        .maplibregl-ctrl-bottom-left, 
+        .maplibregl-ctrl-bottom-right {
             background: rgba(0,0,0,0.5);
             color: white;
             padding: 3px;
             border-radius: 3px;
             font-size: 11px;
+        }
+        .maplibregl-popup {
+            max-width: 200px;
+        }
+        .maplibregl-popup-content {
+            background: #2d1a2d;
+            color: white;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 0 15px rgba(109,131,255,0.5);
         }
     </style>
 </head>
@@ -163,7 +173,6 @@
         
         let map = null;
         let marker = null;
-        let pmLayer = null;
         
         // Пытаемся получить параметры из URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -219,6 +228,10 @@
             initialView.style.display = 'block';
             resultView.style.display = 'none';
             loadingView.style.display = 'none';
+            if (map) {
+                map.remove();
+                map = null;
+            }
         }
         
         function showLoading() {
@@ -228,8 +241,6 @@
         }
         
         function showResult(lat, lng, timezone, time) {
-            showMap(lat, lng);
-            
             coordinatesEl.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
             timezoneEl.textContent = timezone;
             timeEl.textContent = time;
@@ -237,6 +248,9 @@
             initialView.style.display = 'none';
             resultView.style.display = 'block';
             loadingView.style.display = 'none';
+            
+            // Инициализируем карту только после отображения контейнера
+            setTimeout(() => showMap(lat, lng), 50);
         }
         
         function showMap(lat, lng) {
@@ -244,57 +258,125 @@
                 map.remove();
             }
             
-            // Создаем контейнер для карты
-            const mapContainer = document.getElementById('map');
-            mapContainer.innerHTML = '<div style="height:100%; width:100%; border-radius:15px;"></div>';
-            
-            // Инициализируем карту
-            map = L.map(mapContainer.firstChild, {
-                zoomControl: false,
-                attributionControl: false
-            }).setView([lat, lng], 13);
-            
-            // Добавляем контролы
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-            
-            // Создаем и настраиваем слой Protomaps
-            pmLayer = protomaps.leafletLayer({
-                url: 'https://build.protomaps.com/20231027.pmtiles',
-                theme: 'dark',
-                attribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap',
+            // Инициализируем карту MapLibre
+            map = new maplibregl.Map({
+                container: 'map',
                 style: {
-                    // Кастомизация стилей карты
-                    land: { fill: '#1a2d2d' },
-                    water: { fill: '#1a1f2d' },
-                    park: { fill: '#1a2d1a' },
-                    residential: { fill: '#2d1a2d' },
-                    road: { stroke: '#6d83ff', width: 1 },
-                    transit: { stroke: '#6df', width: 1 },
-                    label: { fill: '#ffffff', font: 'bold 11px sans-serif' },
-                    city: { fill: '#ffffff', font: 'bold 13px sans-serif' }
-                }
+                    version: 8,
+                    sources: {
+                        'protomaps': {
+                            type: 'vector',
+                            tiles: [`https://api.protomaps.com/tiles/v3/{z}/{x}/{y}.mvt?key=${Config.PM_API_KEY}`],
+                            attribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap'
+                        }
+                    },
+                    layers: [
+                        {
+                            id: 'background',
+                            type: 'background',
+                            paint: {'background-color': '#1a1f2d'}
+                        },
+                        {
+                            id: 'water',
+                            type: 'fill',
+                            source: 'protomaps',
+                            'source-layer': 'water',
+                            paint: {'fill-color': '#1a1f2d'}
+                        },
+                        {
+                            id: 'landuse',
+                            type: 'fill',
+                            source: 'protomaps',
+                            'source-layer': 'landuse',
+                            paint: {'fill-color': '#1a2d2d'}
+                        },
+                        {
+                            id: 'roads',
+                            type: 'line',
+                            source: 'protomaps',
+                            'source-layer': 'roads',
+                            paint: {
+                                'line-color': '#6d83ff',
+                                'line-width': 1
+                            }
+                        },
+                        {
+                            id: 'buildings',
+                            type: 'fill',
+                            source: 'protomaps',
+                            'source-layer': 'buildings',
+                            paint: {'fill-color': '#2d1a2d'}
+                        },
+                        {
+                            id: 'places',
+                            type: 'symbol',
+                            source: 'protomaps',
+                            'source-layer': 'places',
+                            layout: {
+                                'text-field': ['get', 'name'],
+                                'text-size': 12,
+                                'text-font': ['Noto Sans Regular'],
+                                'text-allow-overlap': false
+                            },
+                            paint: {
+                                'text-color': '#ffffff'
+                            }
+                        }
+                    ]
+                },
+                center: [lng, lat],
+                zoom: 13,
+                attributionControl: false
             });
-            pmLayer.addTo(map);
             
-            // Добавляем маркер
-            marker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: 'custom-marker',
-                    html: '<div style="background:#6d83ff; border-radius:50%; width:20px; height:20px; border:3px solid white; box-shadow:0 0 10px rgba(109,131,255,0.8);"></div>',
-                    iconSize: [20, 20],
-                    iconAnchor: [10, 10]
-                })
-            }).addTo(map)
-            .bindPopup('Ваше местоположение')
-            .openPopup();
-                
+            // Добавляем элементы управления
+            map.addControl(new maplibregl.NavigationControl(), 'top-right');
+            map.addControl(new maplibregl.AttributionControl({
+                compact: true,
+                customAttribution: '<a href="https://protomaps.com">Protomaps</a> © OpenStreetMap'
+            }));
+            
+            // Создаем кастомный маркер
+            const markerElement = document.createElement('div');
+            markerElement.className = 'custom-marker';
+            markerElement.innerHTML = '<div style="background:#6d83ff; border-radius:50%; width:20px; height:20px; border:3px solid white; box-shadow:0 0 10px rgba(109,131,255,0.8);"></div>';
+            
+            // Добавляем маркер на карту
+            marker = new maplibregl.Marker({
+                element: markerElement,
+                anchor: 'center'
+            })
+            .setLngLat([lng, lat])
+            .setPopup(new maplibregl.Popup().setHTML('<b>Ваше местоположение</b>'))
+            .addTo(map)
+            .togglePopup();
+            
             // Добавляем круг точности
-            L.circle([lat, lng], {
-                color: '#6df',
-                fillColor: '#6df',
-                fillOpacity: 0.2,
-                radius: 100
-            }).addTo(map);
+            map.on('load', () => {
+                map.addSource('point', {
+                    type: 'geojson',
+                    data: {
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [lng, lat]
+                        }
+                    }
+                });
+                
+                map.addLayer({
+                    id: 'point-circle',
+                    type: 'circle',
+                    source: 'point',
+                    paint: {
+                        'circle-radius': 100,
+                        'circle-color': '#6df',
+                        'circle-opacity': 0.2,
+                        'circle-stroke-color': '#6df',
+                        'circle-stroke-width': 1
+                    }
+                });
+            });
         }
         
         // Инициализация Mini App
